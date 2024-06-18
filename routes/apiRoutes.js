@@ -1,41 +1,40 @@
-const router = require('express').Router();
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+const express = require("express");
+const router = express.Router();
 
-router.get('/notes', (req, res) => {
-  fs.readFile(path.join(__dirname, '../db/db.json'), 'utf8', (err, data) => {
-    if (err) throw err;
-    res.json(JSON.parse(data));
-  });
+const uuid = require("uuid");
+
+const DB = require("../db/DB");
+
+
+router.get("/api/notes", async function (req, res) {
+  const notes = await DB.readNotes();
+  return res.json(notes);
 });
 
-router.post('/notes', (req, res) => {
-  const newNote = { id: uuidv4(), ...req.body };
+router.post("/api/notes", async function (req, res) {
+  const currentNotes = await DB.readNotes();
+  let newNote = {
+    id: uuid(),
+    title: req.body.title,
+    text: req.body.text,
+  };
 
-  fs.readFile(path.join(__dirname, '../db/db.json'), 'utf8', (err, data) => {
-    if (err) throw err;
-    const notes = JSON.parse(data);
-    notes.push(newNote);
-    fs.writeFile(path.join(__dirname, '../db/db.json'), JSON.stringify(notes, null, 2), err => {
-      if (err) throw err;
-      res.json(newNote);
-    });
-  });
+  await DB.addNote([...currentNotes, newNote]);
+
+  return res.send(newNote);
 });
 
-router.delete('/notes/:id', (req, res) => {
-  const noteId = req.params.id;
+router.delete("/api/notes/:id", async function (req, res) {
 
-  fs.readFile(path.join(__dirname, '../db/db.json'), 'utf8', (err, data) => {
-    if (err) throw err;
-    let notes = JSON.parse(data);
-    notes = notes.filter(note => note.id !== noteId);
-    fs.writeFile(path.join(__dirname, '../db/db.json'), JSON.stringify(notes, null, 2), err => {
-      if (err) throw err;
-      res.sendStatus(204);
-    });
-  });
+  const noteToDelete = req.params.id;
+
+  const currentNotes = await DB.readNotes();
+
+  const newNoteData = currentNotes.filter((note) => note.id !== noteToDelete);
+
+  await DB.deleteNote(newNoteData);
+  
+  return res.send(newNoteData);
 });
 
 module.exports = router;
